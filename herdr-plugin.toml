@@ -1,0 +1,67 @@
+id = "community.quota-sidebar"
+
+name = "Quota Sidebar"
+
+version = "0.1.0"
+
+min_herdr_version = "0.7.0"
+
+description = "Show Claude and Codex subscription quota in the Herdr sidebar as workspace metadata tokens"
+
+platforms = ["linux", "macos"]
+
+[[build]]
+
+command = ["bun", "install", "--frozen-lockfile"]
+
+[[startup]]
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[actions]]
+
+id = "publish"
+
+title = "Publish quota tokens"
+
+contexts = ["workspace", "global"]
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[actions]]
+
+id = "show"
+
+title = "Show quota snapshot"
+
+contexts = ["workspace", "global"]
+
+command = ["bun", "run", "src/main.ts", "show"]
+
+[[events]]
+
+on = "workspace.created"
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[events]]
+
+on = "workspace.updated"
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[events]]
+
+on = "workspace.closed"
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[keys.command]]
+
+key = "prefix+shift+q"
+
+type = "plugin_action"
+
+command = "community.quota-sidebar.show"
+
+description = "quota snapshot"

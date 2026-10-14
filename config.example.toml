@@ -1,0 +1,23 @@
+# Quota Sidebar plugin configuration
+# Every value is optional; the plugin falls back to the defaults below.
+
+# Minutes between quota refreshes (1-1440).
+refresh_minutes = 5
+
+# Maximum number of windows rendered per provider (1-8).
+max_window_count = 4
+
+# Mark tokens stale after this many minutes and fall back to the last good value (1-1440).
+stale_after_minutes = 30
+
+# Prefix for the reported metadata tokens, e.g. "quota" gives $quota_claude_5h.
+token_prefix = "quota"
+
+[providers]
+claude = true
+codex = true
+
+# Add your tokens to the sidebar in ~/.config/herdr/config.toml:
+#
+# [ui.sidebar.spaces]
+# rows = [["state_icon", "workspace"], ["$quota_claude_text"], ["$quota_codex_text"]]

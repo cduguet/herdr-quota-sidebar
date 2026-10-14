@@ -1,0 +1,14 @@
+{
+  "name": "herdr-quota-sidebar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "publish": "bun run src/main.ts publish",
+    "show": "bun run src/main.ts show",
+    "selftest": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
