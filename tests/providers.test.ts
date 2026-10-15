@@ -220,6 +220,7 @@ describe("state cache", () => {
     const path = join(dir, "snapshots.json");
     saveState(path, {
       seq: 7,
+      publishedAt: 1_792_000_000_000,
       snapshots: [
         {
           provider: "codex",
@@ -231,11 +232,12 @@ describe("state cache", () => {
     });
     const state = loadState(path);
     expect(state.seq).toBe(7);
+    expect(state.publishedAt).toBe(1_792_000_000_000);
     expect(state.snapshots[0]!.windows[0]!.usedPercent).toBe(12);
     expect(state.snapshots[0]!.windows[0]!.resetsAt?.toISOString()).toBe("2026-10-14T20:00:00.000Z");
 
     Bun.write(path, "{ truncated");
-    expect(loadState(path)).toEqual({ seq: 0, snapshots: [] });
-    expect(loadState(join(dir, "nope.json"))).toEqual({ seq: 0, snapshots: [] });
+    expect(loadState(path)).toEqual({ seq: 0, publishedAt: 0, snapshots: [] });
+    expect(loadState(join(dir, "nope.json"))).toEqual({ seq: 0, publishedAt: 0, snapshots: [] });
   });
 });

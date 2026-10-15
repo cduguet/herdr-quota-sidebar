@@ -5,10 +5,12 @@ import type { ProviderSnapshot, Window } from "./types.ts";
 
 export type PluginState = {
   seq: number;
+  /** Epoch ms of the last publish attempt; events use it to throttle refreshes. */
+  publishedAt: number;
   snapshots: ProviderSnapshot[];
 };
 
-const EMPTY_STATE: PluginState = { seq: 0, snapshots: [] };
+const EMPTY_STATE: PluginState = { seq: 0, publishedAt: 0, snapshots: [] };
 
 function reviveWindow(value: unknown): Window | undefined {
   if (!isRecord(value)) return undefined;
@@ -60,7 +62,11 @@ export function loadState(path: string): PluginState {
         if (snapshot) snapshots.push(snapshot);
       }
     }
-    return { seq: numberField(parsed, "seq") ?? 0, snapshots };
+    return {
+      seq: numberField(parsed, "seq") ?? 0,
+      publishedAt: numberField(parsed, "publishedAt") ?? 0,
+      snapshots,
+    };
   } catch {
     return EMPTY_STATE;
   }

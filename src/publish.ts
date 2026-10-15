@@ -13,6 +13,8 @@ export type PublishContext = {
   config: Config;
   statePath: string;
   binPath: string;
+  /** Ignore the refresh throttle; set for manual action invocations. */
+  force: boolean;
 };
 
 type HerdrCall = { args: string[]; payload: Record<string, unknown> };
@@ -148,9 +150,13 @@ export function publishTokens(
 
 export async function publish(context: PublishContext): Promise<PluginState> {
   const previous = loadState(context.statePath);
+  const age = Date.now() - previous.publishedAt;
+  if (!context.force && age < context.config.refreshMinutes * 60_000) return previous;
+  // Claim the slot before the slow network fetch so a burst of events publishes once.
+  saveState(context.statePath, { ...previous, publishedAt: Date.now() });
   const snapshots = await collect(context.config, previous.snapshots);
   const seq = previous.seq + 1;
-  const state: PluginState = { seq, snapshots };
+  const state: PluginState = { seq, publishedAt: Date.now(), snapshots };
   saveState(context.statePath, state);
 
   const tokens = tokenValuesFor(snapshots, context.config, new Date());

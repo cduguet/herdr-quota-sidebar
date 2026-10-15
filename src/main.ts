@@ -46,7 +46,12 @@ async function main(): Promise<void> {
     return;
   }
 
-  const state = await publish({ config, statePath: statePath(), binPath: binPath() });
+  const state = await publish({
+    config,
+    statePath: statePath(),
+    binPath: binPath(),
+    force: process.argv.includes("--force"),
+  });
   for (const snapshot of state.snapshots) {
     process.stdout.write(`${showSnapshot(snapshot, now)}\n`);
   }

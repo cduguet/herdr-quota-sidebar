@@ -26,7 +26,7 @@ title = "Publish quota tokens"
 
 contexts = ["workspace", "global"]
 
-command = ["bun", "run", "src/main.ts", "publish"]
+command = ["bun", "run", "src/main.ts", "publish", "--force"]
 
 [[actions]]
 
@@ -53,6 +53,30 @@ command = ["bun", "run", "src/main.ts", "publish"]
 [[events]]
 
 on = "workspace.closed"
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[events]]
+
+on = "workspace.focused"
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[events]]
+
+on = "tab.focused"
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[events]]
+
+on = "pane.focused"
+
+command = ["bun", "run", "src/main.ts", "publish"]
+
+[[events]]
+
+on = "pane.agent_status_changed"
 
 command = ["bun", "run", "src/main.ts", "publish"]
 
