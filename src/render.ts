@@ -2,11 +2,8 @@ import type { ProviderSnapshot, Window } from "./types.ts";
 
 const BAR_CELLS = 8;
 
-/** The only window shown in the sidebar. Both providers' weekly windows are labelled this. */
+/** The only window shown. Both providers' weekly windows are labelled this. */
 const WEEKLY_LABEL = "wk";
-
-/** One glyph per provider so a row stays identifiable without its colour. */
-const PROVIDER_BADGES: Record<string, string> = { claude: "✻", codex: "◆" };
 
 export function formatReset(resetsAt: Date | undefined, now: Date): string {
   if (!resetsAt) return "";
@@ -26,17 +23,6 @@ export function formatBar(usedPercent: number): string {
   return "█".repeat(filled) + "░".repeat(BAR_CELLS - filled);
 }
 
-/** `✻ 5h ███░░░░░  44% 3d`: badge, label, bar, right-aligned percent, time to reset. */
-export function formatBarLine(
-  badge: string,
-  window: Window,
-  labelWidth: number,
-  now: Date,
-): string {
-  const percent = `${Math.round(window.usedPercent)}%`.padStart(4);
-  return `${badge} ${window.label.padEnd(labelWidth)} ${formatBar(window.usedPercent)}${percent}${formatReset(window.resetsAt, now)}`;
-}
-
 /** Highest-pressure window, used for the compact one-line variant. */
 export function headroom(snapshot: ProviderSnapshot): Window | undefined {
   return snapshot.windows.reduce<Window | undefined>(
@@ -45,27 +31,15 @@ export function headroom(snapshot: ProviderSnapshot): Window | undefined {
   );
 }
 
-export function tokenValues(
-  snapshot: ProviderSnapshot,
-  prefix: string,
-  now: Date,
-): Record<string, string> {
-  const tokens: Record<string, string> = {};
-  const base = `${prefix}_${snapshot.provider}`;
-  const badge = PROVIDER_BADGES[snapshot.provider] ?? "•";
+/** `Claude wk ████░░░░ 46% 3d`, or `Claude wk n/a` when the provider has no weekly window. */
+function formatProvider(snapshot: ProviderSnapshot, now: Date): string {
   const weekly = snapshot.windows.find((window) => window.label === WEEKLY_LABEL);
-  if (snapshot.error && !weekly) {
-    tokens[`${base}_${WEEKLY_LABEL}`] = `${badge} ${WEEKLY_LABEL} n/a`;
-    tokens[`${base}_status`] = snapshot.error.slice(0, 64);
-    return tokens;
-  }
-  if (!weekly) return tokens;
-  tokens[`${base}_${WEEKLY_LABEL}`] = formatBarLine(badge, weekly, WEEKLY_LABEL.length, now);
-  tokens[`${base}_left`] = `${Math.round(100 - weekly.usedPercent)}% left`;
-  tokens[`${base}_status`] =
-    snapshot.error ??
-    `updated ${Math.round((now.getTime() - snapshot.fetchedAt.getTime()) / 60000)}m ago`;
-  if (snapshot.plan) tokens[`${base}_plan`] = snapshot.plan;
-  if (snapshot.detail) tokens[`${base}_detail`] = snapshot.detail;
-  return tokens;
+  if (!weekly) return `${snapshot.label} ${WEEKLY_LABEL} n/a`;
+  return `${snapshot.label} ${WEEKLY_LABEL} ${formatBar(weekly.usedPercent)} ${Math.round(weekly.usedPercent)}%${formatReset(weekly.resetsAt, now)}`;
+}
+
+/** One status line with every provider's weekly quota; Herdr shows only the last line of output. */
+export function statusLine(snapshots: ProviderSnapshot[], now: Date): string {
+  if (snapshots.length === 0) return "quota n/a";
+  return snapshots.map((snapshot) => formatProvider(snapshot, now)).join("  ");
 }

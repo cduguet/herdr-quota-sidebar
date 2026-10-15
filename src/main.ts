@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { loadConfig } from "./config.ts";
-import { publish } from "./publish.ts";
-import { headroom, formatWindow } from "./render.ts";
+import { refresh } from "./refresh.ts";
+import { formatWindow, headroom, statusLine } from "./render.ts";
 import { loadState } from "./state.ts";
 import type { ProviderSnapshot } from "./types.ts";
 
@@ -13,10 +13,6 @@ function pluginConfigPath(): string {
 function statePath(): string {
   const dir = process.env.HERDR_PLUGIN_STATE_DIR;
   return dir ? `${dir}/snapshots.json` : `${process.env.HOME}/.local/state/herdr/quota-sidebar.json`;
-}
-
-function binPath(): string {
-  return process.env.HERDR_BIN_PATH ?? "herdr";
 }
 
 function showSnapshot(snapshot: ProviderSnapshot, now: Date): string {
@@ -31,13 +27,13 @@ function showSnapshot(snapshot: ProviderSnapshot, now: Date): string {
 
 async function main(): Promise<void> {
   const config = await loadConfig(pluginConfigPath());
-  const command = process.argv[2] ?? "publish";
+  const command = process.argv[2] ?? "line";
   const now = new Date();
 
   if (command === "show") {
     const state = loadState(statePath());
     if (state.snapshots.length === 0) {
-      process.stdout.write("no snapshot yet; run `publish` first\n");
+      process.stdout.write("no snapshot yet; run `refresh` first\n");
       return;
     }
     for (const snapshot of state.snapshots) {
@@ -46,15 +42,22 @@ async function main(): Promise<void> {
     return;
   }
 
-  const state = await publish({
-    config,
-    statePath: statePath(),
-    binPath: binPath(),
-    force: process.argv.includes("--force"),
-  });
-  for (const snapshot of state.snapshots) {
-    process.stdout.write(`${showSnapshot(snapshot, now)}\n`);
+  if (command === "line") {
+    // Run by Herdr's tab bar on an interval; refreshes only when the cache is older than refresh_minutes.
+    const state = await refresh({ config, statePath: statePath(), force: false });
+    process.stdout.write(`${statusLine(state.snapshots, new Date())}\n`);
+    return;
   }
+
+  if (command === "refresh") {
+    const state = await refresh({ config, statePath: statePath(), force: true });
+    for (const snapshot of state.snapshots) {
+      process.stdout.write(`${showSnapshot(snapshot, now)}\n`);
+    }
+    return;
+  }
+
+  throw new Error(`unknown command "${command}"; expected line, show, or refresh`);
 }
 
 try {

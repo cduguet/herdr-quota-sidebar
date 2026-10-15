@@ -20,13 +20,9 @@ export type Config = {
     codex: boolean;
   };
   refreshMinutes: number;
-  tokenPrefix: string;
-  staleAfterMinutes: number;
 };
 
 export const DEFAULT_CONFIG: Config = {
   providers: { claude: true, codex: true },
   refreshMinutes: 5,
-  tokenPrefix: "quota",
-  staleAfterMinutes: 30,
 };

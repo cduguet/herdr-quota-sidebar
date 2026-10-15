@@ -3,7 +3,7 @@ import { windowsFromClaudeUsage } from "../src/providers/claude.ts";
 import { parseCodexAuth, windowsFromCodexUsage } from "../src/providers/codex.ts";
 import { loadConfig, serializeConfig } from "../src/config.ts";
 import { DEFAULT_CONFIG } from "../src/types.ts";
-import { formatBar, formatWindow, tokenValues } from "../src/render.ts";
+import { formatBar, formatWindow, statusLine } from "../src/render.ts";
 import { loadState, saveState } from "../src/state.ts";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -110,7 +110,7 @@ describe("loadConfig", () => {
       path,
       [
         "refresh_minutes = 99999",
-        'token_prefix = "bad prefix!"',
+        'unknown_key = "ignored"',
         "",
         "[providers]",
         "claude = false",
@@ -120,65 +120,55 @@ describe("loadConfig", () => {
     expect(config.providers.claude).toBe(false);
     expect(config.providers.codex).toBe(true);
     expect(config.refreshMinutes).toBe(1440);
-    expect(config.tokenPrefix).toBe("quota");
   });
 
   test("round-trips through serializeConfig", async () => {
     const dir = mkdtempSync(join(tmpdir(), "quota-config-"));
     const path = join(dir, "config.toml");
-    const custom = { ...DEFAULT_CONFIG, tokenPrefix: "ai", refreshMinutes: 9, staleAfterMinutes: 45 };
+    const custom = { ...DEFAULT_CONFIG, refreshMinutes: 9, providers: { claude: false, codex: true } };
     await Bun.write(path, serializeConfig(custom));
     expect(await loadConfig(path)).toEqual(custom);
   });
 });
 
-describe("tokenValues", () => {
-  const snapshot = {
+describe("statusLine", () => {
+  const claude = {
     provider: "claude",
     label: "Claude",
     plan: "max",
     windows: [
       { label: "5h", usedPercent: 30, resetsAt: new Date("2026-10-14T13:20:00Z") },
-      { label: "wk", usedPercent: 75 },
+      { label: "wk", usedPercent: 46, resetsAt: new Date(NOW.getTime() + 3 * 86_400_000) },
     ],
     fetchedAt: NOW,
   };
+  const codex = {
+    provider: "codex",
+    label: "Codex",
+    windows: [{ label: "wk", usedPercent: 10, resetsAt: new Date(NOW.getTime() + 7 * 86_400_000) }],
+    fetchedAt: NOW,
+  };
 
-  test("emits only the weekly window plus headroom, plan, and status", () => {
-    const tokens = tokenValues(snapshot, "quota", NOW);
-    expect(Object.keys(tokens).sort()).toEqual([
-      "quota_claude_left",
-      "quota_claude_plan",
-      "quota_claude_status",
-      "quota_claude_wk",
-    ]);
-    expect(tokens.quota_claude_wk).toBe("✻ wk ██████░░ 75%");
-    expect(tokens.quota_claude_left).toBe("25% left");
-    expect(tokens.quota_claude_plan).toBe("max");
-    expect(tokens.quota_claude_status).toBe("updated 0m ago");
+  test("shows each provider's weekly bar by name and ignores other windows", () => {
+    expect(statusLine([claude, codex], NOW)).toBe("Claude wk ████░░░░ 46% 3d  Codex wk █░░░░░░░ 10% 7d");
   });
 
-  test("emits nothing when the provider has no weekly window", () => {
-    const fiveHourOnly = { ...snapshot, windows: [{ label: "5h", usedPercent: 30 }] };
-    expect(tokenValues(fiveHourOnly, "quota", NOW)).toEqual({});
+  test("marks a provider with no weekly window as n/a", () => {
+    expect(statusLine([{ ...claude, windows: [{ label: "5h", usedPercent: 30 }] }, codex], NOW)).toBe(
+      "Claude wk n/a  Codex wk █░░░░░░░ 10% 7d",
+    );
   });
 
-  test("shows n/a with the error when a provider failed and nothing is cached", () => {
-    const tokens = tokenValues({ ...snapshot, windows: [], error: "unauthorized (401)" }, "quota", NOW);
-    expect(tokens.quota_claude_wk).toBe("✻ wk n/a");
-    expect(tokens.quota_claude_status).toBe("unauthorized (401)");
+  test("keeps the cached weekly bar when a refresh failed", () => {
+    expect(statusLine([{ ...codex, error: "stale: boom" }], NOW)).toBe("Codex wk █░░░░░░░ 10% 7d");
   });
 
-  test("keeps the cached weekly bar and surfaces the error when a refresh failed", () => {
-    const tokens = tokenValues({ ...snapshot, error: "stale: unauthorized (401)" }, "quota", NOW);
-    expect(tokens.quota_claude_wk).toBe("✻ wk ██████░░ 75%");
-    expect(tokens.quota_claude_status).toBe("stale: unauthorized (401)");
+  test("reports n/a before the first snapshot", () => {
+    expect(statusLine([], NOW)).toBe("quota n/a");
   });
 
-  test("token names satisfy the Herdr pattern", () => {
-    for (const name of Object.keys(tokenValues(snapshot, "quota", NOW))) {
-      expect(name).toMatch(/^[A-Za-z0-9_-]{1,32}$/);
-    }
+  test("fits Herdr's 80-character status limit", () => {
+    expect(statusLine([claude, codex], NOW).length).toBeLessThanOrEqual(80);
   });
 });
 
@@ -189,20 +179,6 @@ describe("formatBar", () => {
     expect(formatBar(100)).toBe("████████");
     expect(formatBar(250)).toBe("████████");
     expect(formatBar(-5)).toBe("░░░░░░░░");
-  });
-
-  test("right-aligns percent and appends time to reset", () => {
-    const tokens = tokenValues(
-      {
-        provider: "codex",
-        label: "Codex",
-        windows: [{ label: "wk", usedPercent: 8, resetsAt: new Date(NOW.getTime() + 3 * 86_400_000) }],
-        fetchedAt: NOW,
-      },
-      "quota",
-      NOW,
-    );
-    expect(tokens.quota_codex_wk).toBe("◆ wk █░░░░░░░  8% 3d");
   });
 });
 
@@ -220,7 +196,6 @@ describe("state cache", () => {
     const dir = mkdtempSync(join(tmpdir(), "quota-state-"));
     const path = join(dir, "snapshots.json");
     saveState(path, {
-      seq: 7,
       publishedAt: 1_792_000_000_000,
       snapshots: [
         {
@@ -232,13 +207,12 @@ describe("state cache", () => {
       ],
     });
     const state = loadState(path);
-    expect(state.seq).toBe(7);
     expect(state.publishedAt).toBe(1_792_000_000_000);
     expect(state.snapshots[0]!.windows[0]!.usedPercent).toBe(12);
     expect(state.snapshots[0]!.windows[0]!.resetsAt?.toISOString()).toBe("2026-10-14T20:00:00.000Z");
 
     Bun.write(path, "{ truncated");
-    expect(loadState(path)).toEqual({ seq: 0, publishedAt: 0, snapshots: [] });
-    expect(loadState(join(dir, "nope.json"))).toEqual({ seq: 0, publishedAt: 0, snapshots: [] });
+    expect(loadState(path)).toEqual({ publishedAt: 0, snapshots: [] });
+    expect(loadState(join(dir, "nope.json"))).toEqual({ publishedAt: 0, snapshots: [] });
   });
 });

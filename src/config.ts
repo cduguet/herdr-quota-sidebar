@@ -64,9 +64,6 @@ export async function loadConfig(path: string): Promise<Config> {
     config.providers.codex = bool(providers.codex, config.providers.codex);
   }
   config.refreshMinutes = int(parsed.refresh_minutes, config.refreshMinutes, 1, 24 * 60);
-  config.staleAfterMinutes = int(parsed.stale_after_minutes, config.staleAfterMinutes, 1, 24 * 60);
-  const prefix = typeof parsed.token_prefix === "string" ? parsed.token_prefix.trim() : "";
-  if (/^[A-Za-z0-9_-]{1,24}$/.test(prefix)) config.tokenPrefix = prefix;
   return config;
 }
 
@@ -78,24 +75,14 @@ export function serializeConfig(config: Config): string {
     "# Minutes between quota refreshes (1-1440).",
     `refresh_minutes = ${config.refreshMinutes}`,
     "",
-    "# Mark tokens stale after this many minutes and fall back to the last good value (1-1440).",
-    `stale_after_minutes = ${config.staleAfterMinutes}`,
-    "",
-    '# Prefix for the reported metadata tokens, e.g. "quota" gives $quota_claude_wk.',
-    `token_prefix = "${config.tokenPrefix}"`,
-    "",
     "[providers]",
     `claude = ${config.providers.claude}`,
     `codex = ${config.providers.codex}`,
     "",
-    "# Add your tokens to the sidebar in ~/.config/herdr/config.toml:",
+    "# Show the quota in the Herdr tab bar by adding this to ~/.config/herdr/config.toml:",
     "#",
-    "# [ui.sidebar.spaces]",
-    "# rows = [",
-    '#   ["state_icon", "workspace"],',
-    '#   [{ token = "$quota_claude_wk", fg = "#D97757" }],',
-    '#   [{ token = "$quota_codex_wk",  fg = "#10A37F" }],',
-    "# ]",
+    "# [ui]",
+    '# tab_bar_right = [{ type = "command", command = "bun run <plugin dir>/src/main.ts line", interval_seconds = 60, timeout_seconds = 30 }]',
     "",
   ].join("\n");
 }

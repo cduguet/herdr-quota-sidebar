@@ -4,13 +4,12 @@ import { isRecord, numberField, stringField } from "./guards.ts";
 import type { ProviderSnapshot, Window } from "./types.ts";
 
 export type PluginState = {
-  seq: number;
-  /** Epoch ms of the last publish attempt; events use it to throttle refreshes. */
+  /** Epoch ms of the last refresh attempt; `line` uses it to throttle network fetches. */
   publishedAt: number;
   snapshots: ProviderSnapshot[];
 };
 
-const EMPTY_STATE: PluginState = { seq: 0, publishedAt: 0, snapshots: [] };
+const EMPTY_STATE: PluginState = { publishedAt: 0, snapshots: [] };
 
 function reviveWindow(value: unknown): Window | undefined {
   if (!isRecord(value)) return undefined;
@@ -63,7 +62,6 @@ export function loadState(path: string): PluginState {
       }
     }
     return {
-      seq: numberField(parsed, "seq") ?? 0,
       publishedAt: numberField(parsed, "publishedAt") ?? 0,
       snapshots,
     };
