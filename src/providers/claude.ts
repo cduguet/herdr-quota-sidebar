@@ -63,7 +63,7 @@ export async function loadClaudeCredentials(): Promise<ClaudeCredentials> {
   const path = `${configDir}/.credentials.json`;
   const file = Bun.file(path);
   if (!(await file.exists())) {
-    throw new Error(`no Claude Code credentials at ${path} (log in with \`claude\`)`);
+    throw new Error(`no usable Claude Code credentials (keychain entry empty or ${path} missing); log in with \`claude\``);
   }
   const credentials = parseCredentials(await file.text(), `file:${path}`);
   if (!credentials) throw new Error(`unrecognized credential shape in ${path}`);

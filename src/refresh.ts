@@ -1,5 +1,6 @@
 import { fetchClaude } from "./providers/claude.ts";
 import { fetchCodex } from "./providers/codex.ts";
+import { fetchKataleptic } from "./providers/kataleptic.ts";
 import { loadState, saveState, type PluginState } from "./state.ts";
 import type { Config, ProviderSnapshot } from "./types.ts";
 
@@ -21,7 +22,7 @@ export function mergeSnapshots(fresh: ProviderSnapshot[], previous: ProviderSnap
   return fresh.map((snapshot) => {
     if (!snapshot.error) return snapshot;
     const lastGood = previous.find((candidate) => candidate.provider === snapshot.provider);
-    if (!lastGood || lastGood.error || lastGood.windows.length === 0) return snapshot;
+    if (!lastGood || lastGood.error || (lastGood.windows.length === 0 && lastGood.spendUsd === undefined)) return snapshot;
     return { ...lastGood, error: `stale: ${snapshot.error}`, fetchedAt: lastGood.fetchedAt };
   });
 }
@@ -30,6 +31,7 @@ async function collect(config: Config, previous: ProviderSnapshot[]): Promise<Pr
   const fresh: ProviderSnapshot[] = [];
   if (config.providers.claude) fresh.push(await fetchClaude());
   if (config.providers.codex) fresh.push(await fetchCodex(codexHome()));
+  if (config.kataleptic.keyCommand) fresh.push(await fetchKataleptic(config.kataleptic.keyCommand));
   return mergeSnapshots(fresh, previous);
 }
 

@@ -4,6 +4,11 @@
 # Minutes between quota refreshes (1-1440).
 refresh_minutes = 5
 
+# Show today's Kataleptic spend (USD, UTC day). The command must print your API key, e.g.
+# key_command = "qsecret 'kataleptic - beast' credential"
+[kataleptic]
+key_command = ""
+
 [providers]
 claude = true
 codex = true

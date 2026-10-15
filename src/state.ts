@@ -42,6 +42,7 @@ function reviveSnapshot(value: unknown): ProviderSnapshot | undefined {
     provider,
     label,
     windows,
+    spendUsd: numberField(value, "spendUsd"),
     plan: stringField(value, "plan"),
     detail: stringField(value, "detail"),
     error: stringField(value, "error"),

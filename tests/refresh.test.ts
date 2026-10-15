@@ -30,6 +30,13 @@ describe("mergeSnapshots", () => {
     expect(merged[0]!.windows).toEqual([]);
   });
 
+  test("keeps the last good spend when a refresh fails", () => {
+    const spend = { provider: "kataleptic", label: "Kataleptic", windows: [], spendUsd: 12.5, fetchedAt: new Date("2026-10-14T12:00:00Z") };
+    const merged = mergeSnapshots([{ ...spend, spendUsd: undefined, error: "timed out", fetchedAt: new Date() }], [spend]);
+    expect(merged[0]!.spendUsd).toBe(12.5);
+    expect(merged[0]!.error).toBe("stale: timed out");
+  });
+
   test("passes healthy snapshots through untouched", () => {
     expect(mergeSnapshots([good], [])).toEqual([good]);
   });

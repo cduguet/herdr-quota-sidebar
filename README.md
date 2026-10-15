@@ -1,14 +1,15 @@
 # herdr-quota-sidebar
 
-Herdr plugin that shows your **Claude Code** and **Codex** weekly subscription quota in Herdr's
-tab bar, once, regardless of which workspace is active:
+Herdr plugin that shows your **Claude Code** and **Codex** weekly subscription quota, plus optional
+**Kataleptic** spend for the day, in Herdr's tab bar, once, regardless of which workspace is active:
 
 ```
-  1   2   quota-sidebar   +                       claude wk ████░░░░ 46% 3d  codex wk █░░░░░░░ 10% 7d
+  1   2   quota-sidebar   +                       claude wk ████░░░░ 46% 3d  codex wk █░░░░░░░ 10% 7d  kataleptic $278.50 today
 ```
 
 Each entry is the lowercase provider name, `wk`, an 8-cell bar, percent used, and time until the weekly window
-resets. The plugin polls each provider's CLI-style usage endpoint and caches the result.
+resets. `kataleptic` is dollars spent so far in the current UTC day (it resets at 00:00 UTC), summed
+over every key on the account. The plugin polls each provider's CLI-style usage endpoint and caches the result.
 
 ## Why the tab bar, not the sidebar
 
@@ -66,6 +67,10 @@ refresh_minutes = 5        # 1-1440, minimum age of the cache before a new fetch
 [providers]
 claude = true
 codex = true
+
+# Kataleptic spend is off until you give a command that prints your API key.
+[kataleptic]
+key_command = "qsecret 'kataleptic - beast' credential"
 ```
 
 [`config.example.toml`](config.example.toml) is a fully commented copy.
@@ -85,6 +90,8 @@ token is not persisted, so the CLI remains the owner of that file.
 
 ## Limitations
 
+- Kataleptic's `GET /v1/billing/usage` returns spend in UTC calendar-day buckets only, so a rolling
+  24-hour figure is not available; the plugin shows the current UTC day.
 - Both usage endpoints are **undocumented and may change without notice**; the exact request and
   response shapes the plugin relies on are recorded in
   [`docs/upstream-notes.md`](docs/upstream-notes.md).

@@ -33,6 +33,9 @@ export function headroom(snapshot: ProviderSnapshot): Window | undefined {
 
 /** `claude wk ████░░░░ 46% 3d`, or `claude wk n/a` when the provider has no weekly window. */
 function formatProvider(snapshot: ProviderSnapshot, now: Date): string {
+  if (snapshot.provider === "kataleptic") {
+    return snapshot.spendUsd === undefined ? "kataleptic n/a" : `kataleptic $${snapshot.spendUsd.toFixed(2)} today`;
+  }
   const weekly = snapshot.windows.find((window) => window.label === WEEKLY_LABEL);
   if (!weekly) return `${snapshot.provider} ${WEEKLY_LABEL} n/a`;
   return `${snapshot.provider} ${WEEKLY_LABEL} ${formatBar(weekly.usedPercent)} ${Math.round(weekly.usedPercent)}%${formatReset(weekly.resetsAt, now)}`;

@@ -18,6 +18,7 @@ function statePath(): string {
 function showSnapshot(snapshot: ProviderSnapshot, now: Date): string {
   const head = `${snapshot.label}${snapshot.plan ? ` (${snapshot.plan})` : ""}`;
   if (snapshot.error) return `${head}: ${snapshot.error}`;
+  if (snapshot.spendUsd !== undefined) return `${head}: $${snapshot.spendUsd.toFixed(2)} today (UTC day)`;
   const windows = snapshot.windows.map((window) => formatWindow(window, now)).join("  ");
   const worst = headroom(snapshot);
   const left = worst ? `  -> ${Math.round(100 - worst.usedPercent)}% headroom` : "";

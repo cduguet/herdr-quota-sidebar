@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { windowsFromClaudeUsage } from "../src/providers/claude.ts";
+import { spendToday } from "../src/providers/kataleptic.ts";
 import { parseCodexAuth, windowsFromCodexUsage } from "../src/providers/codex.ts";
 import { loadConfig, serializeConfig } from "../src/config.ts";
 import { DEFAULT_CONFIG } from "../src/types.ts";
@@ -125,9 +126,36 @@ describe("loadConfig", () => {
   test("round-trips through serializeConfig", async () => {
     const dir = mkdtempSync(join(tmpdir(), "quota-config-"));
     const path = join(dir, "config.toml");
-    const custom = { ...DEFAULT_CONFIG, refreshMinutes: 9, providers: { claude: false, codex: true } };
+    const custom = {
+      ...DEFAULT_CONFIG,
+      refreshMinutes: 9,
+      providers: { claude: false, codex: true },
+      kataleptic: { keyCommand: "qsecret 'kataleptic - beast' credential" },
+    };
     await Bun.write(path, serializeConfig(custom));
     expect(await loadConfig(path)).toEqual(custom);
+  });
+});
+
+describe("spendToday", () => {
+  const usage = {
+    by_day: [
+      { date: "2026-10-13", cost_usd: 0.59 },
+      { date: "2026-10-14", cost_usd: 159.92 },
+      { date: "2026-10-15", cost_usd: 271.4237 },
+    ],
+  };
+
+  test("returns only the current UTC day, not earlier days", () => {
+    expect(spendToday(usage, new Date("2026-10-15T17:33:00Z"))).toBe(271.4237);
+  });
+
+  test("is zero when nothing was spent yet today", () => {
+    expect(spendToday(usage, new Date("2026-10-16T00:05:00Z"))).toBe(0);
+  });
+
+  test("rejects a response without by_day", () => {
+    expect(() => spendToday({ error: "nope" }, NOW)).toThrow();
   });
 });
 
@@ -163,12 +191,19 @@ describe("statusLine", () => {
     expect(statusLine([{ ...codex, error: "stale: boom" }], NOW)).toBe("codex wk █░░░░░░░ 10% 7d");
   });
 
+  test("appends today's Kataleptic spend", () => {
+    const kataleptic = { provider: "kataleptic", label: "Kataleptic", windows: [], spendUsd: 271.4237, fetchedAt: NOW };
+    expect(statusLine([codex, kataleptic], NOW)).toBe("codex wk █░░░░░░░ 10% 7d  kataleptic $271.42 today");
+    expect(statusLine([{ ...kataleptic, spendUsd: undefined, error: "unauthorized (401)" }], NOW)).toBe("kataleptic n/a");
+  });
+
   test("reports n/a before the first snapshot", () => {
     expect(statusLine([], NOW)).toBe("quota n/a");
   });
 
   test("fits Herdr's 80-character status limit", () => {
-    expect(statusLine([claude, codex], NOW).length).toBeLessThanOrEqual(80);
+    const kataleptic = { provider: "kataleptic", label: "Kataleptic", windows: [], spendUsd: 1234.567, fetchedAt: NOW };
+    expect(statusLine([claude, codex, kataleptic], NOW).length).toBeLessThanOrEqual(80);
   });
 });
 

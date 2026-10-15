@@ -1,3 +1,4 @@
+import { stringField } from "./guards.ts";
 import type { Config } from "./types.ts";
 import { DEFAULT_CONFIG } from "./types.ts";
 
@@ -63,6 +64,7 @@ export async function loadConfig(path: string): Promise<Config> {
     config.providers.claude = bool(providers.claude, config.providers.claude);
     config.providers.codex = bool(providers.codex, config.providers.codex);
   }
+  config.kataleptic.keyCommand = stringField(parsed.kataleptic, "key_command")?.trim() ?? config.kataleptic.keyCommand;
   config.refreshMinutes = int(parsed.refresh_minutes, config.refreshMinutes, 1, 24 * 60);
   return config;
 }
@@ -74,6 +76,11 @@ export function serializeConfig(config: Config): string {
     "",
     "# Minutes between quota refreshes (1-1440).",
     `refresh_minutes = ${config.refreshMinutes}`,
+    "",
+    "# Show today's Kataleptic spend (USD, UTC day). The command must print your API key, e.g.",
+    "# key_command = \"qsecret 'kataleptic - beast' credential\"",
+    "[kataleptic]",
+    `key_command = ${JSON.stringify(config.kataleptic.keyCommand)}`,
     "",
     "[providers]",
     `claude = ${config.providers.claude}`,
