@@ -42,15 +42,21 @@ async function keychainCredentials(): Promise<ClaudeCredentials | undefined> {
     const hash = new Bun.CryptoHasher("sha256").update(homedir).digest("hex").slice(0, 8);
     services.unshift(`${CLAUDE_KEYCHAIN_SERVICE}-${hash}`);
   }
+  // Claude Code stores its login under the OS username. Other entries with the same service name
+  // (e.g. an empty one left behind with account "unknown") must not shadow it, so ask for that
+  // account first and only then fall back to whichever entry the keychain returns.
+  const accounts = [process.env.USER, undefined];
   for (const service of services) {
-    const result = Bun.spawnSync({
-      cmd: ["security", "find-generic-password", "-s", service, "-w"],
-      stdout: "pipe",
-      stderr: "ignore",
-    });
-    if (result.exitCode !== 0) continue;
-    const credentials = parseCredentials(result.stdout.toString().trim(), `keychain:${service}`);
-    if (credentials) return credentials;
+    for (const account of accounts) {
+      const result = Bun.spawnSync({
+        cmd: ["security", "find-generic-password", "-s", service, ...(account ? ["-a", account] : []), "-w"],
+        stdout: "pipe",
+        stderr: "ignore",
+      });
+      if (result.exitCode !== 0) continue;
+      const credentials = parseCredentials(result.stdout.toString().trim(), `keychain:${service}`);
+      if (credentials) return credentials;
+    }
   }
   return undefined;
 }
