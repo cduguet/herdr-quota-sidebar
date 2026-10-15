@@ -3,7 +3,7 @@ import { windowsFromClaudeUsage } from "../src/providers/claude.ts";
 import { parseCodexAuth, windowsFromCodexUsage } from "../src/providers/codex.ts";
 import { loadConfig, serializeConfig } from "../src/config.ts";
 import { DEFAULT_CONFIG } from "../src/types.ts";
-import { formatWindow, tokenValues } from "../src/render.ts";
+import { formatBar, formatWindow, tokenValues } from "../src/render.ts";
 import { loadState, saveState } from "../src/state.ts";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -148,8 +148,8 @@ describe("tokenValues", () => {
 
   test("emits per-window, aggregate, and status tokens", () => {
     const tokens = tokenValues(snapshot, "quota", 4, NOW);
-    expect(tokens.quota_claude_5h).toBe("5h 30% 1h");
-    expect(tokens.quota_claude_wk).toBe("wk 75%");
+    expect(tokens.quota_claude_5h).toBe("✻ 5h ██░░░░░░ 30% 1h");
+    expect(tokens.quota_claude_wk).toBe("✻ wk ██████░░ 75%");
     expect(tokens.quota_claude_text).toBe("5h 30% 1h wk 75%");
     expect(tokens.quota_claude_left).toBe("25% left");
     expect(tokens.quota_claude_plan).toBe("max");
@@ -173,6 +173,35 @@ describe("tokenValues", () => {
     for (const name of Object.keys(tokenValues(snapshot, "quota", 4, NOW))) {
       expect(name).toMatch(/^[A-Za-z0-9_-]{1,32}$/);
     }
+  });
+});
+
+describe("formatBar", () => {
+  test("fills proportionally and clamps out-of-range input", () => {
+    expect(formatBar(0)).toBe("░░░░░░░░");
+    expect(formatBar(50)).toBe("████░░░░");
+    expect(formatBar(100)).toBe("████████");
+    expect(formatBar(250)).toBe("████████");
+    expect(formatBar(-5)).toBe("░░░░░░░░");
+  });
+
+  test("aligns bars across windows with different label lengths", () => {
+    const tokens = tokenValues(
+      {
+        provider: "codex",
+        label: "Codex",
+        windows: [
+          { label: "7d", usedPercent: 10 },
+          { label: "review", usedPercent: 10 },
+        ],
+        fetchedAt: NOW,
+      },
+      "quota",
+      4,
+      NOW,
+    );
+    expect(tokens.quota_codex_7d).toBe("◆ 7d     █░░░░░░░ 10%");
+    expect(tokens.quota_codex_review).toBe("◆ review █░░░░░░░ 10%");
   });
 });
 

@@ -95,7 +95,12 @@ export function serializeConfig(config: Config): string {
     "# Add your tokens to the sidebar in ~/.config/herdr/config.toml:",
     "#",
     "# [ui.sidebar.spaces]",
-    '# rows = [["state_icon", "workspace"], ["$quota_claude_text"], ["$quota_codex_text"]]',
+    "# rows = [",
+    '#   ["state_icon", "workspace"],',
+    '#   [{ token = "$quota_claude_5h", fg = "#D97757" }],',
+    '#   [{ token = "$quota_claude_wk", fg = "#D97757" }],',
+    '#   [{ token = "$quota_codex_7d",  fg = "#10A37F" }],',
+    "# ]",
     "",
   ].join("\n");
 }

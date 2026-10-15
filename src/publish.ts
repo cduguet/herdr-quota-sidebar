@@ -17,11 +17,6 @@ export type PublishContext = {
 
 type HerdrCall = { args: string[]; payload: Record<string, unknown> };
 
-function pluginConfigPath(): string {
-  const dir = process.env.HERDR_PLUGIN_CONFIG_DIR;
-  return dir ? `${dir}/config.toml` : `${process.env.HOME}/.config/herdr/quota-sidebar.toml`;
-}
-
 function codexHome(): string {
   const dir = process.env.CODEX_HOME;
   if (dir) return dir;
@@ -77,6 +72,22 @@ export function agentPaneIds(binPath: string, workspaceId: string): string[] {
   for (const entry of body.panes) {
     const paneId = stringField(entry, "pane_id");
     if (paneId && stringField(entry, "agent")) ids.push(paneId);
+  }
+  return ids;
+}
+
+/** Every open workspace: the sidebar renders each space's own tokens, not just the focused one. */
+export function workspaceIds(binPath: string): string[] {
+  const result = spawnSync(binPath, ["workspace", "list"], { encoding: "utf8" });
+  if (result.error || result.status !== 0) return [];
+  const parsed = parseJson(result.stdout);
+  if (!isRecord(parsed)) return [];
+  const body = parsed.result;
+  if (!isRecord(body) || !Array.isArray(body.workspaces)) return [];
+  const ids: string[] = [];
+  for (const entry of body.workspaces) {
+    const workspaceId = stringField(entry, "workspace_id");
+    if (workspaceId) ids.push(workspaceId);
   }
   return ids;
 }
@@ -142,20 +153,17 @@ export async function publish(context: PublishContext): Promise<PluginState> {
   const state: PluginState = { seq, snapshots };
   saveState(context.statePath, state);
 
-  const workspaceId = process.env.HERDR_WORKSPACE_ID;
-  if (!workspaceId) {
-    return state;
-  }
   const tokens = tokenValuesFor(snapshots, context.config, new Date());
-  publishTokens({
-    binPath: context.binPath,
-    workspaceId,
-    paneIds: agentPaneIds(context.binPath, workspaceId),
-    tokens,
-    seq,
-    ttlMs: Math.min(context.config.staleAfterMinutes * 60_000, 86_400_000),
-  });
+  const ttlMs = Math.min(context.config.staleAfterMinutes * 60_000, 86_400_000);
+  for (const workspaceId of workspaceIds(context.binPath)) {
+    publishTokens({
+      binPath: context.binPath,
+      workspaceId,
+      paneIds: agentPaneIds(context.binPath, workspaceId),
+      tokens,
+      seq,
+      ttlMs,
+    });
+  }
   return state;
 }
-
-export { pluginConfigPath };

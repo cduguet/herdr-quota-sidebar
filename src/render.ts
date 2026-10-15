@@ -1,5 +1,10 @@
 import type { ProviderSnapshot, Window } from "./types.ts";
 
+const BAR_CELLS = 8;
+
+/** One glyph per provider so a row stays identifiable without its colour. */
+const PROVIDER_BADGES: Record<string, string> = { claude: "✻", codex: "◆" };
+
 export function formatReset(resetsAt: Date | undefined, now: Date): string {
   if (!resetsAt) return "";
   const minutes = Math.round((resetsAt.getTime() - now.getTime()) / 60000);
@@ -11,6 +16,22 @@ export function formatReset(resetsAt: Date | undefined, now: Date): string {
 
 export function formatWindow(window: Window, now: Date): string {
   return `${window.label} ${Math.round(window.usedPercent)}%${formatReset(window.resetsAt, now)}`;
+}
+
+export function formatBar(usedPercent: number): string {
+  const filled = Math.min(BAR_CELLS, Math.max(0, Math.round((usedPercent / 100) * BAR_CELLS)));
+  return "█".repeat(filled) + "░".repeat(BAR_CELLS - filled);
+}
+
+/** `✻ 5h ███░░░░░  44% 3d`: badge, label, bar, right-aligned percent, time to reset. */
+export function formatBarLine(
+  badge: string,
+  window: Window,
+  labelWidth: number,
+  now: Date,
+): string {
+  const percent = `${Math.round(window.usedPercent)}%`.padStart(4);
+  return `${badge} ${window.label.padEnd(labelWidth)} ${formatBar(window.usedPercent)}${percent}${formatReset(window.resetsAt, now)}`;
 }
 
 /** Highest-pressure window, used for the compact one-line variant. */
@@ -35,8 +56,10 @@ export function tokenValues(
     return tokens;
   }
   const windows = snapshot.windows.slice(0, maxWindowCount);
+  const badge = PROVIDER_BADGES[snapshot.provider] ?? "•";
+  const labelWidth = Math.max(...windows.map((window) => window.label.length));
   for (const window of windows) {
-    tokens[`${base}_${window.label}`] = formatWindow(window, now);
+    tokens[`${base}_${window.label}`] = formatBarLine(badge, window, labelWidth, now);
   }
   tokens[`${base}_text`] = windows.map((window) => formatWindow(window, now)).join(" ");
   const worst = headroom(snapshot);

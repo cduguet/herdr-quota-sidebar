@@ -9,11 +9,13 @@ built-in sidebar fields.
 
 ```
  spaces
-   ▸ 1 kataleptic
-     5h 9% 2m wk 19% 4d
-     7d 86% 7d
-   ▸ 2 openfon
- agents
+ ● kataleptic
+   ✻ 5h ░░░░░░░░  3% 5h      (orange)
+   ✻ wk ████░░░░ 44% 3d      (orange)
+   ◆ 7d █░░░░░░░  8% 7d      (teal)
+ ○ openfon
+   ✻ 5h ░░░░░░░░  3% 5h
+   ...
 ```
 
 ## Why a plugin, not a new sidebar section
@@ -48,22 +50,29 @@ Herdr does not let a plugin edit `config.toml`, so add the rows yourself in
 [ui.sidebar.spaces]
 rows = [
   ["state_icon", "workspace"],
-  ["$quota_claude_text"],
-  ["$quota_codex_text"],
+  [{ token = "$quota_claude_5h",   fg = "#D97757" }],
+  [{ token = "$quota_claude_wk",   fg = "#D97757" }],
+  [{ token = "$quota_claude_opus", fg = "#D97757" }],
+  [{ token = "$quota_codex_5h",    fg = "#10A37F" }],
+  [{ token = "$quota_codex_7d",    fg = "#10A37F" }],
 ]
 ```
 
-`$quota_claude_text` is one line per provider; granular tokens are available if you want them:
+The plugin renders the bar and the layout; Herdr applies colour from your config, so the orange
+(`#D97757`) and teal (`#10A37F`) above are just `fg` values you can change. A row whose token is
+absent (say, no Opus window on your plan) is hidden automatically. Codex window names come from
+the API (`5h`, `7d`, `review`, ...), so list the ones your plan reports.
+
+Every window token is one aligned line: `✻ wk ████░░░░ 44% 3d`: provider badge, window, 8-cell
+bar, percent used, time to reset. Other tokens:
 
 | Token | Value |
 | --- | --- |
-| `$quota_claude_text` | all Claude windows, e.g. `5h 9% 2m wk 19% 4d` |
-| `$quota_claude_5h` | the 5-hour window, with time to reset |
-| `$quota_claude_wk` | the weekly window |
-| `$quota_claude_opus` / `$quota_claude_design` | per-model weekly windows when present |
-| `$quota_claude_left` | headroom on the most-consumed window, e.g. `81% left` |
-| `$quota_claude_plan` / `$quota_claude_status` | plan name, snapshot age |
-| `$quota_codex_text` / `$quota_codex_7d` / `$quota_codex_left` / `$quota_codex_plan` | Codex equivalents |
+| `$quota_claude_5h` / `_wk` / `_opus` / `_design` | bar line per window (those present) |
+| `$quota_codex_5h` / `_7d` / `_review` | bar line per window (those present) |
+| `$quota_<provider>_text` | one plain line with all windows, e.g. `5h 9% 2m wk 19% 4d` |
+| `$quota_<provider>_left` | headroom on the most-used window, e.g. `56% left` |
+| `$quota_<provider>_plan` / `_status` | plan name, snapshot age or error |
 
 Row styles work too (`{ token = "$quota_claude_left", fg = "#ff5555" }`), and rules
 (`equals`/`contains`/`gt`/`lt`/`hide`) apply exactly as for built-in tokens.
@@ -72,15 +81,15 @@ Apply changes with `herdr server reload-config`.
 
 ### Which workspace gets the tokens?
 
-Metadata is attached to a workspace, and a workspace is always known during a plugin action or event
-hook (`HERDR_WORKSPACE_ID`). The plugin publishes on:
+Every open workspace (and each agent pane in it) gets the tokens, because the sidebar renders each
+space from its own metadata. The plugin publishes on:
 
 - plugin startup,
 - `workspace.created`, `workspace.updated`, `workspace.closed`, and
 - manual `herdr plugin action invoke publish --plugin community.quota-sidebar`.
 
-So every workspace you touch during a session gets the tokens. If you want them everywhere at once,
-run the publish action once per workspace, or invoke it from a workspace you keep open.
+Tokens expire after `stale_after_minutes`, so a workspace created later shows them on the next
+publish. Re-run the action to refresh by hand.
 
 ## Configuration
 
