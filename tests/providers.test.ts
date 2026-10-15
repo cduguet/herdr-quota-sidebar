@@ -58,7 +58,7 @@ describe("windowsFromCodexUsage", () => {
       },
       code_review_rate_limit: { primary_window: { used_percent: 5, limit_window_seconds: 3600 } },
     });
-    expect(windows.map((w) => w.label)).toEqual(["5h", "7d", "1h"]);
+    expect(windows.map((w) => w.label)).toEqual(["5h", "wk", "1h"]);
     expect(windows[0]!.resetsAt?.getTime()).toBe(1_800_000_000_000);
   });
 
@@ -110,7 +110,6 @@ describe("loadConfig", () => {
       path,
       [
         "refresh_minutes = 99999",
-        "max_window_count = 2",
         'token_prefix = "bad prefix!"',
         "",
         "[providers]",
@@ -121,7 +120,6 @@ describe("loadConfig", () => {
     expect(config.providers.claude).toBe(false);
     expect(config.providers.codex).toBe(true);
     expect(config.refreshMinutes).toBe(1440);
-    expect(config.maxWindowCount).toBe(2);
     expect(config.tokenPrefix).toBe("quota");
   });
 
@@ -146,31 +144,39 @@ describe("tokenValues", () => {
     fetchedAt: NOW,
   };
 
-  test("emits per-window, aggregate, and status tokens", () => {
-    const tokens = tokenValues(snapshot, "quota", 4, NOW);
-    expect(tokens.quota_claude_5h).toBe("✻ 5h ██░░░░░░ 30% 1h");
+  test("emits only the weekly window plus headroom, plan, and status", () => {
+    const tokens = tokenValues(snapshot, "quota", NOW);
+    expect(Object.keys(tokens).sort()).toEqual([
+      "quota_claude_left",
+      "quota_claude_plan",
+      "quota_claude_status",
+      "quota_claude_wk",
+    ]);
     expect(tokens.quota_claude_wk).toBe("✻ wk ██████░░ 75%");
-    expect(tokens.quota_claude_text).toBe("5h 30% 1h wk 75%");
     expect(tokens.quota_claude_left).toBe("25% left");
     expect(tokens.quota_claude_plan).toBe("max");
     expect(tokens.quota_claude_status).toBe("updated 0m ago");
   });
 
-  test("respects maxWindowCount", () => {
-    const tokens = tokenValues(snapshot, "quota", 1, NOW);
-    expect(tokens.quota_claude_text).toBe("5h 30% 1h");
-    expect(tokens.quota_claude_wk).toBeUndefined();
+  test("emits nothing when the provider has no weekly window", () => {
+    const fiveHourOnly = { ...snapshot, windows: [{ label: "5h", usedPercent: 30 }] };
+    expect(tokenValues(fiveHourOnly, "quota", NOW)).toEqual({});
   });
 
-  test("reports errors without stale window tokens", () => {
-    const tokens = tokenValues({ ...snapshot, windows: [], error: "unauthorized (401)" }, "quota", 4, NOW);
+  test("shows n/a with the error when a provider failed and nothing is cached", () => {
+    const tokens = tokenValues({ ...snapshot, windows: [], error: "unauthorized (401)" }, "quota", NOW);
+    expect(tokens.quota_claude_wk).toBe("✻ wk n/a");
     expect(tokens.quota_claude_status).toBe("unauthorized (401)");
-    expect(tokens.quota_claude_text).toBe("Claude n/a");
-    expect(tokens.quota_claude_5h).toBeUndefined();
+  });
+
+  test("keeps the cached weekly bar and surfaces the error when a refresh failed", () => {
+    const tokens = tokenValues({ ...snapshot, error: "stale: unauthorized (401)" }, "quota", NOW);
+    expect(tokens.quota_claude_wk).toBe("✻ wk ██████░░ 75%");
+    expect(tokens.quota_claude_status).toBe("stale: unauthorized (401)");
   });
 
   test("token names satisfy the Herdr pattern", () => {
-    for (const name of Object.keys(tokenValues(snapshot, "quota", 4, NOW))) {
+    for (const name of Object.keys(tokenValues(snapshot, "quota", NOW))) {
       expect(name).toMatch(/^[A-Za-z0-9_-]{1,32}$/);
     }
   });
@@ -185,23 +191,18 @@ describe("formatBar", () => {
     expect(formatBar(-5)).toBe("░░░░░░░░");
   });
 
-  test("aligns bars across windows with different label lengths", () => {
+  test("right-aligns percent and appends time to reset", () => {
     const tokens = tokenValues(
       {
         provider: "codex",
         label: "Codex",
-        windows: [
-          { label: "7d", usedPercent: 10 },
-          { label: "review", usedPercent: 10 },
-        ],
+        windows: [{ label: "wk", usedPercent: 8, resetsAt: new Date(NOW.getTime() + 3 * 86_400_000) }],
         fetchedAt: NOW,
       },
       "quota",
-      4,
       NOW,
     );
-    expect(tokens.quota_codex_7d).toBe("◆ 7d     █░░░░░░░ 10%");
-    expect(tokens.quota_codex_review).toBe("◆ review █░░░░░░░ 10%");
+    expect(tokens.quota_codex_wk).toBe("◆ wk █░░░░░░░  8% 3d");
   });
 });
 

@@ -4,13 +4,10 @@
 # Minutes between quota refreshes (1-1440).
 refresh_minutes = 5
 
-# Maximum number of windows rendered per provider (1-8).
-max_window_count = 4
-
 # Mark tokens stale after this many minutes and fall back to the last good value (1-1440).
 stale_after_minutes = 30
 
-# Prefix for the reported metadata tokens, e.g. "quota" gives $quota_claude_5h.
+# Prefix for the reported metadata tokens, e.g. "quota" gives $quota_claude_wk.
 token_prefix = "quota"
 
 [providers]
@@ -22,7 +19,6 @@ codex = true
 # [ui.sidebar.spaces]
 # rows = [
 #   ["state_icon", "workspace"],
-#   [{ token = "$quota_claude_5h", fg = "#D97757" }],
 #   [{ token = "$quota_claude_wk", fg = "#D97757" }],
-#   [{ token = "$quota_codex_7d",  fg = "#10A37F" }],
+#   [{ token = "$quota_codex_wk",  fg = "#10A37F" }],
 # ]

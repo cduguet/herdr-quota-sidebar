@@ -49,7 +49,7 @@ export function tokenValuesFor(
 ): Record<string, string> {
   const tokens: Record<string, string> = {};
   for (const snapshot of snapshots) {
-    Object.assign(tokens, tokenValues(snapshot, config.tokenPrefix, config.maxWindowCount, now));
+    Object.assign(tokens, tokenValues(snapshot, config.tokenPrefix, now));
   }
   return tokens;
 }
@@ -62,43 +62,53 @@ function callHerdr(call: HerdrCall, binPath: string): void {
   }
 }
 
-/** Panes running a coding agent, which are the rows the quota tokens are meant for. */
-export function agentPaneIds(binPath: string, workspaceId: string): string[] {
-  const result = spawnSync(binPath, ["pane", "list", "--workspace", workspaceId], { encoding: "utf8" });
-  if (result.error || result.status !== 0) return [];
-  const parsed = parseJson(result.stdout);
-  if (!isRecord(parsed)) return [];
-  const body = parsed.result;
-  if (!isRecord(body) || !Array.isArray(body.panes)) return [];
-  const ids: string[] = [];
-  for (const entry of body.panes) {
-    const paneId = stringField(entry, "pane_id");
-    if (paneId && stringField(entry, "agent")) ids.push(paneId);
+type TokenHolder = { id: string; tokenNames: string[] };
+
+function holders(entries: unknown, idField: string): TokenHolder[] {
+  const found: TokenHolder[] = [];
+  if (!Array.isArray(entries)) return found;
+  for (const entry of entries) {
+    const id = stringField(entry, idField);
+    if (!id) continue;
+    const tokens = isRecord(entry) ? entry.tokens : undefined;
+    found.push({ id, tokenNames: isRecord(tokens) ? Object.keys(tokens) : [] });
   }
-  return ids;
+  return found;
 }
 
-/** Every open workspace: the sidebar renders each space's own tokens, not just the focused one. */
-export function workspaceIds(binPath: string): string[] {
-  const result = spawnSync(binPath, ["workspace", "list"], { encoding: "utf8" });
-  if (result.error || result.status !== 0) return [];
+/** Workspaces in sidebar order and panes, each with the token names currently set on it. */
+export function listTokenHolders(binPath: string): { workspaces: TokenHolder[]; panes: TokenHolder[] } {
+  const result = spawnSync(binPath, ["api", "snapshot"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  if (result.error || result.status !== 0) throw new Error(`api snapshot failed: ${result.stderr?.trim()}`);
   const parsed = parseJson(result.stdout);
-  if (!isRecord(parsed)) return [];
-  const body = parsed.result;
-  if (!isRecord(body) || !Array.isArray(body.workspaces)) return [];
-  const ids: string[] = [];
-  for (const entry of body.workspaces) {
-    const workspaceId = stringField(entry, "workspace_id");
-    if (workspaceId) ids.push(workspaceId);
-  }
-  return ids;
+  const body = isRecord(parsed) ? parsed.result : undefined;
+  const snapshot = isRecord(body) ? body.snapshot : undefined;
+  if (!isRecord(snapshot)) throw new Error("api snapshot returned no snapshot");
+  return {
+    workspaces: holders(snapshot.workspaces, "workspace_id"),
+    panes: holders(snapshot.panes, "pane_id"),
+  };
 }
 
+function reportArgs(kind: "workspace" | "pane", id: string, seq: number, tokens: string[], ttlMs?: number): string[] {
+  return [
+    kind,
+    "report-metadata",
+    id,
+    "--source",
+    PUBLISHER_SOURCE,
+    "--seq",
+    String(seq),
+    ...(ttlMs === undefined ? [] : ["--ttl-ms", String(ttlMs)]),
+    ...tokens.flatMap((token) => ["--token", token]),
+  ];
+}
+
+/** Sets `tokens` on one workspace, split into requests Herdr accepts. */
 export function publishTokens(
   args: {
     binPath: string;
     workspaceId: string;
-    paneIds: string[];
     tokens: Record<string, string>;
     seq: number;
     ttlMs: number;
@@ -106,45 +116,24 @@ export function publishTokens(
   exec: (call: HerdrCall) => void = (call) => callHerdr(call, args.binPath),
 ): void {
   const entries = Object.entries(args.tokens);
-  const payloads: Record<string, string>[] = [];
   for (let index = 0; index < entries.length; index += MAX_TOKENS_PER_REQUEST) {
-    payloads.push(Object.fromEntries(entries.slice(index, index + MAX_TOKENS_PER_REQUEST)));
+    const payload = Object.fromEntries(entries.slice(index, index + MAX_TOKENS_PER_REQUEST));
+    const tokens = Object.entries(payload).map(([name, value]) => `${name}=${value}`);
+    exec({ args: reportArgs("workspace", args.workspaceId, args.seq, tokens, args.ttlMs), payload });
   }
-  for (const payload of payloads) {
+}
+
+/** Removes `names` from a workspace or pane; an empty value deletes the token in Herdr. */
+export function clearTokens(
+  args: { binPath: string; kind: "workspace" | "pane"; id: string; names: string[]; seq: number },
+  exec: (call: HerdrCall) => void = (call) => callHerdr(call, args.binPath),
+): void {
+  for (let index = 0; index < args.names.length; index += MAX_TOKENS_PER_REQUEST) {
+    const names = args.names.slice(index, index + MAX_TOKENS_PER_REQUEST);
     exec({
-      args: [
-        "workspace",
-        "report-metadata",
-        args.workspaceId,
-        "--source",
-        PUBLISHER_SOURCE,
-        "--seq",
-        String(args.seq),
-        "--ttl-ms",
-        String(args.ttlMs),
-        ...Object.entries(payload).flatMap(([name, value]) => ["--token", `${name}=${value}`]),
-      ],
-      payload,
+      args: reportArgs(args.kind, args.id, args.seq, names.map((name) => `${name}=`)),
+      payload: Object.fromEntries(names.map((name) => [name, ""])),
     });
-  }
-  for (const paneId of args.paneIds) {
-    for (const payload of payloads) {
-      exec({
-        args: [
-          "pane",
-          "report-metadata",
-          paneId,
-          "--source",
-          PUBLISHER_SOURCE,
-          "--seq",
-          String(args.seq),
-          "--ttl-ms",
-          String(args.ttlMs),
-          ...Object.entries(payload).flatMap(([name, value]) => ["--token", `${name}=${value}`]),
-        ],
-        payload,
-      });
-    }
   }
 }
 
@@ -155,21 +144,31 @@ export async function publish(context: PublishContext): Promise<PluginState> {
   // Claim the slot before the slow network fetch so a burst of events publishes once.
   saveState(context.statePath, { ...previous, publishedAt: Date.now() });
   const snapshots = await collect(context.config, previous.snapshots);
-  const seq = previous.seq + 1;
+  // Two sequence numbers per run: Herdr drops a repeated seq, and clears precede the publish.
+  const seq = previous.seq + 2;
   const state: PluginState = { seq, publishedAt: Date.now(), snapshots };
   saveState(context.statePath, state);
 
   const tokens = tokenValuesFor(snapshots, context.config, new Date());
   const ttlMs = Math.min(context.config.staleAfterMinutes * 60_000, 86_400_000);
-  for (const workspaceId of workspaceIds(context.binPath)) {
-    publishTokens({
-      binPath: context.binPath,
-      workspaceId,
-      paneIds: agentPaneIds(context.binPath, workspaceId),
-      tokens,
-      seq,
-      ttlMs,
-    });
+  // Sidebar rows render per workspace, so showing the quota once means one anchor
+  // workspace (the first in the sidebar) carries the tokens and everything else carries none.
+  // Tokens this plugin set earlier (other workspaces, panes, retired names) are removed too.
+  const { workspaces, panes } = listTokenHolders(context.binPath);
+  const [anchor] = workspaces;
+  if (anchor === undefined) return state;
+  const ours = `${context.config.tokenPrefix}_`;
+  const strays = (holder: TokenHolder, keep: Set<string>) =>
+    holder.tokenNames.filter((name) => name.startsWith(ours) && !keep.has(name));
+  const keepOnAnchor = new Set(Object.keys(tokens));
+  const targets = [
+    ...workspaces.map((holder) => ({ kind: "workspace" as const, holder, keep: holder === anchor ? keepOnAnchor : new Set<string>() })),
+    ...panes.map((holder) => ({ kind: "pane" as const, holder, keep: new Set<string>() })),
+  ];
+  for (const { kind, holder, keep } of targets) {
+    const names = strays(holder, keep);
+    if (names.length > 0) clearTokens({ binPath: context.binPath, kind, id: holder.id, names, seq: seq - 1 });
   }
+  publishTokens({ binPath: context.binPath, workspaceId: anchor.id, tokens, seq, ttlMs });
   return state;
 }

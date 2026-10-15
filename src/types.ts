@@ -21,7 +21,6 @@ export type Config = {
   };
   refreshMinutes: number;
   tokenPrefix: string;
-  maxWindowCount: number;
   staleAfterMinutes: number;
 };
 
@@ -29,6 +28,5 @@ export const DEFAULT_CONFIG: Config = {
   providers: { claude: true, codex: true },
   refreshMinutes: 5,
   tokenPrefix: "quota",
-  maxWindowCount: 4,
   staleAfterMinutes: 30,
 };

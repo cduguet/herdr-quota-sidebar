@@ -2,6 +2,9 @@ import type { ProviderSnapshot, Window } from "./types.ts";
 
 const BAR_CELLS = 8;
 
+/** The only window shown in the sidebar. Both providers' weekly windows are labelled this. */
+const WEEKLY_LABEL = "wk";
+
 /** One glyph per provider so a row stays identifiable without its colour. */
 const PROVIDER_BADGES: Record<string, string> = { claude: "✻", codex: "◆" };
 
@@ -45,26 +48,22 @@ export function headroom(snapshot: ProviderSnapshot): Window | undefined {
 export function tokenValues(
   snapshot: ProviderSnapshot,
   prefix: string,
-  maxWindowCount: number,
   now: Date,
 ): Record<string, string> {
   const tokens: Record<string, string> = {};
   const base = `${prefix}_${snapshot.provider}`;
-  if (snapshot.error) {
-    tokens[`${base}_status`] = `${snapshot.error}`.slice(0, 64);
-    tokens[`${base}_text`] = `${snapshot.label} n/a`;
+  const badge = PROVIDER_BADGES[snapshot.provider] ?? "•";
+  const weekly = snapshot.windows.find((window) => window.label === WEEKLY_LABEL);
+  if (snapshot.error && !weekly) {
+    tokens[`${base}_${WEEKLY_LABEL}`] = `${badge} ${WEEKLY_LABEL} n/a`;
+    tokens[`${base}_status`] = snapshot.error.slice(0, 64);
     return tokens;
   }
-  const windows = snapshot.windows.slice(0, maxWindowCount);
-  const badge = PROVIDER_BADGES[snapshot.provider] ?? "•";
-  const labelWidth = Math.max(...windows.map((window) => window.label.length));
-  for (const window of windows) {
-    tokens[`${base}_${window.label}`] = formatBarLine(badge, window, labelWidth, now);
-  }
-  tokens[`${base}_text`] = windows.map((window) => formatWindow(window, now)).join(" ");
-  const worst = headroom(snapshot);
-  if (worst) tokens[`${base}_left`] = `${Math.round(100 - worst.usedPercent)}% left`;
+  if (!weekly) return tokens;
+  tokens[`${base}_${WEEKLY_LABEL}`] = formatBarLine(badge, weekly, WEEKLY_LABEL.length, now);
+  tokens[`${base}_left`] = `${Math.round(100 - weekly.usedPercent)}% left`;
   tokens[`${base}_status`] =
+    snapshot.error ??
     `updated ${Math.round((now.getTime() - snapshot.fetchedAt.getTime()) / 60000)}m ago`;
   if (snapshot.plan) tokens[`${base}_plan`] = snapshot.plan;
   if (snapshot.detail) tokens[`${base}_detail`] = snapshot.detail;

@@ -69,6 +69,7 @@ export async function requestCodexUsage(auth: CodexAuth): Promise<CodexUsage> {
 function windowLabel(seconds: number | undefined, fallback: string): string {
   if (!seconds || seconds <= 0) return fallback;
   const hours = seconds / 3600;
+  if (hours >= 24 * 6 && hours <= 24 * 8) return "wk";
   if (hours < 24) return `${Math.round(hours)}h`;
   return `${Math.round(hours / 24)}d`;
 }

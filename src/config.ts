@@ -64,7 +64,6 @@ export async function loadConfig(path: string): Promise<Config> {
     config.providers.codex = bool(providers.codex, config.providers.codex);
   }
   config.refreshMinutes = int(parsed.refresh_minutes, config.refreshMinutes, 1, 24 * 60);
-  config.maxWindowCount = int(parsed.max_window_count, config.maxWindowCount, 1, 8);
   config.staleAfterMinutes = int(parsed.stale_after_minutes, config.staleAfterMinutes, 1, 24 * 60);
   const prefix = typeof parsed.token_prefix === "string" ? parsed.token_prefix.trim() : "";
   if (/^[A-Za-z0-9_-]{1,24}$/.test(prefix)) config.tokenPrefix = prefix;
@@ -79,13 +78,10 @@ export function serializeConfig(config: Config): string {
     "# Minutes between quota refreshes (1-1440).",
     `refresh_minutes = ${config.refreshMinutes}`,
     "",
-    "# Maximum number of windows rendered per provider (1-8).",
-    `max_window_count = ${config.maxWindowCount}`,
-    "",
     "# Mark tokens stale after this many minutes and fall back to the last good value (1-1440).",
     `stale_after_minutes = ${config.staleAfterMinutes}`,
     "",
-    '# Prefix for the reported metadata tokens, e.g. "quota" gives $quota_claude_5h.',
+    '# Prefix for the reported metadata tokens, e.g. "quota" gives $quota_claude_wk.',
     `token_prefix = "${config.tokenPrefix}"`,
     "",
     "[providers]",
@@ -97,9 +93,8 @@ export function serializeConfig(config: Config): string {
     "# [ui.sidebar.spaces]",
     "# rows = [",
     '#   ["state_icon", "workspace"],',
-    '#   [{ token = "$quota_claude_5h", fg = "#D97757" }],',
     '#   [{ token = "$quota_claude_wk", fg = "#D97757" }],',
-    '#   [{ token = "$quota_codex_7d",  fg = "#10A37F" }],',
+    '#   [{ token = "$quota_codex_wk",  fg = "#10A37F" }],',
     "# ]",
     "",
   ].join("\n");
