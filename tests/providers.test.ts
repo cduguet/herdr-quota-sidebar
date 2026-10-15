@@ -149,18 +149,18 @@ describe("statusLine", () => {
     fetchedAt: NOW,
   };
 
-  test("shows each provider's weekly bar by name and ignores other windows", () => {
-    expect(statusLine([claude, codex], NOW)).toBe("Claude wk ████░░░░ 46% 3d  Codex wk █░░░░░░░ 10% 7d");
+  test("shows each provider's weekly bar by lowercase name and ignores other windows", () => {
+    expect(statusLine([claude, codex], NOW)).toBe("claude wk ████░░░░ 46% 3d  codex wk █░░░░░░░ 10% 7d");
   });
 
   test("marks a provider with no weekly window as n/a", () => {
     expect(statusLine([{ ...claude, windows: [{ label: "5h", usedPercent: 30 }] }, codex], NOW)).toBe(
-      "Claude wk n/a  Codex wk █░░░░░░░ 10% 7d",
+      "claude wk n/a  codex wk █░░░░░░░ 10% 7d",
     );
   });
 
   test("keeps the cached weekly bar when a refresh failed", () => {
-    expect(statusLine([{ ...codex, error: "stale: boom" }], NOW)).toBe("Codex wk █░░░░░░░ 10% 7d");
+    expect(statusLine([{ ...codex, error: "stale: boom" }], NOW)).toBe("codex wk █░░░░░░░ 10% 7d");
   });
 
   test("reports n/a before the first snapshot", () => {

@@ -4,10 +4,10 @@ Herdr plugin that shows your **Claude Code** and **Codex** weekly subscription q
 tab bar, once, regardless of which workspace is active:
 
 ```
-  1   2   quota-sidebar   +                       Claude wk ████░░░░ 46% 3d  Codex wk █░░░░░░░ 10% 7d
+  1   2   quota-sidebar   +                       claude wk ████░░░░ 46% 3d  codex wk █░░░░░░░ 10% 7d
 ```
 
-Each entry is the provider name, `wk`, an 8-cell bar, percent used, and time until the weekly window
+Each entry is the lowercase provider name, `wk`, an 8-cell bar, percent used, and time until the weekly window
 resets. The plugin polls each provider's CLI-style usage endpoint and caches the result.
 
 ## Why the tab bar, not the sidebar

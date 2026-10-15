@@ -31,11 +31,11 @@ export function headroom(snapshot: ProviderSnapshot): Window | undefined {
   );
 }
 
-/** `Claude wk ████░░░░ 46% 3d`, or `Claude wk n/a` when the provider has no weekly window. */
+/** `claude wk ████░░░░ 46% 3d`, or `claude wk n/a` when the provider has no weekly window. */
 function formatProvider(snapshot: ProviderSnapshot, now: Date): string {
   const weekly = snapshot.windows.find((window) => window.label === WEEKLY_LABEL);
-  if (!weekly) return `${snapshot.label} ${WEEKLY_LABEL} n/a`;
-  return `${snapshot.label} ${WEEKLY_LABEL} ${formatBar(weekly.usedPercent)} ${Math.round(weekly.usedPercent)}%${formatReset(weekly.resetsAt, now)}`;
+  if (!weekly) return `${snapshot.provider} ${WEEKLY_LABEL} n/a`;
+  return `${snapshot.provider} ${WEEKLY_LABEL} ${formatBar(weekly.usedPercent)} ${Math.round(weekly.usedPercent)}%${formatReset(weekly.resetsAt, now)}`;
 }
 
 /** One status line with every provider's weekly quota; Herdr shows only the last line of output. */
