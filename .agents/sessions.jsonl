@@ -1,0 +1,3 @@
+{"direction":"OMP -> OMP native review","task":"PR 1 documentation: fcbffed...950c9c8","session_id":"01a19c30-2db6-7754-8814-1ec266b02db4","status":"PASS","ts":"2026-11-02T12:19:44.057167+00:00"}
+{"direction":"OMP -> Claude native review","task":"PR 1 documentation: fcbffed...950c9c8; minor findings adjudicated on PR","session_id":"7d5ca32d-8f2d-41ce-a463-d8e742675bcb","status":"findings adjudicated; documentation corrected","ts":"2026-11-02T12:19:44.057167+00:00"}
+{"direction":"OMP -> acceptance","task":"Normal-login usage bar; iteration 1; normal-login-bar-v1","session_id":"NormalLoginBarAcceptance","status":"PASS","ts":"2026-11-02T12:19:44.057167+00:00"}
