@@ -99,7 +99,7 @@ option to add this scope.
 
 Anthropic's [authentication documentation](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token)
 states that these tokens can only make model requests. A separate read-only usage
-grant is an [upstream feature request](https://github.com/anthropics/claude-code/issues/81015),
+grant is a [closed upstream feature request](https://github.com/anthropics/claude-code/issues/81015),
 not a currently supported setup-token option.
 
 The plugin intentionally keeps the saved-login credential path described above; it
@@ -109,8 +109,7 @@ Do not make inference/keepalive requests just to obtain usage statistics.
 
 If the saved login cannot refresh, renew it with `claude auth login --claudeai`,
 then run `herdr plugin action invoke refresh --plugin community.quota-sidebar`.
-Use the `show` action to check for errors. After a failed refresh the bar may retain
-the last good values; cached usage is not proof that authentication is still working.
+The refresh action prints each provider's result or error.
 
 ## Limitations
 
@@ -123,8 +122,9 @@ the last good values; cached usage is not proof that authentication is still wor
 - Codex labels windows from `limit_window_seconds`, so the names depend on your plan
   (the weekly window is the one shown).
 - Headroom is a percentage of quota, not a message count.
-- Last known good values are reused when a refresh fails, so the line keeps the last bar instead of
-  vanishing.
+- An initial refresh failure may reuse the previous good values, but repeated failures can
+  produce `n/a`. Cached usage is not proof that authentication is working; `refresh` or `show`
+  reports the underlying error.
 
 ## Development
 
